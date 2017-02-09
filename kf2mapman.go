@@ -192,6 +192,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer cfgdata.Close()
 
 	cfg, err := LoadConfig(cfgdata)
 	if err != nil {

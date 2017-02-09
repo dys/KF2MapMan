@@ -1,7 +1,6 @@
 package kf2mapman
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,9 +13,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var TestData = "testdata/"
-var PreEditIni = TestData + "pre-edit.ini"
-var IniFile = `
+const TestData = "testdata/"
+const PreEditIni = TestData + "pre-edit.ini"
+const EditedIni = TestData + "to-edit.ini"
+const IniFile = `
 [MAP1 KFMapSummary]
 MapName=MAP1
 ScreenshotPathName=UI_MapPreview_TEX.UI_MapPreview_Placeholder
@@ -28,10 +28,9 @@ GameMapCycles=(Maps=("MAP1","MAP2"))
 MapName=MAP2
 ScreenshotPathName=UI_MapPreview_TEX.UI_MapPreview_Placeholder
 `
-var EditedIni = TestData + "to-edit.ini"
 
 func Reader() io.Reader {
-	return bytes.NewBufferString(IniFile)
+	return strings.NewReader(IniFile)
 }
 
 func Config() *goconfig.ConfigFile {
