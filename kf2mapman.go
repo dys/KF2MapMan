@@ -3,7 +3,10 @@ package kf2mapman
 import (
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
+	"os"
 	"strings"
 
 	"github.com/Unknwon/goconfig"
@@ -42,6 +45,21 @@ const MapSectionScreenshotOption = "ScreenshotPathName"
 // used for maps without an existing screenshot
 const MapSectionDefaultScreenshot = "UI_MapPreview_TEX.UI_MapPreview_Placeholder"
 
+// LoadConfig returns a goconfig.ConfigFile from
+// an io.Reader compatible source
+func LoadConfig(in io.Reader) (*goconfig.ConfigFile, error) {
+	cfg, err := goconfig.LoadFromReader(in)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
+// SaveConfig writes the given cfg to file
+func SaveConfig(cfg *goconfig.ConfigFile, file string) {
+	goconfig.SaveConfigFile(cfg, file)
+}
+
 // CreateSectionHeader returns a properly formatted
 // map section header for the given name
 func CreateSectionHeader(name string) string {
@@ -55,7 +73,9 @@ func GetMapSections(cfg *goconfig.ConfigFile) []string {
 	names := []string{}
 	for _, name := range sections {
 		if strings.HasSuffix(name, MapSectionSuffix) {
-			names = append(names, strings.TrimSuffix(name, fmt.Sprintf(" %s", MapSectionSuffix)))
+			names = append(names,
+				strings.TrimSuffix(name,
+					fmt.Sprintf(" %s", MapSectionSuffix)))
 		}
 	}
 	return names
@@ -79,8 +99,7 @@ func CreateMapCycle(names []string) string {
 		MapCycleSuffix)
 }
 
-// MapInCycle returns true if a map is
-// already in the map cycle for config
+// MapInCycle returns true if a map is already in the map cycle for config
 func MapInCycle(name string, cfg *goconfig.ConfigFile) bool {
 	cycle := GetMapCycle(cfg)
 	for _, m := range cycle {
@@ -138,7 +157,7 @@ func StripMapExtension(name string) string {
 	return name
 }
 
-// GetMapsInDir Returns a list of KF2 maps in dir
+// GetMapsInDir returns a list of KF2 maps in dir
 func GetMapsInDir(dir string) []string {
 	files, _ := ioutil.ReadDir(dir)
 	maps := []string{}
@@ -152,25 +171,33 @@ func GetMapsInDir(dir string) []string {
 	return maps
 }
 
-// LoadConfig returns a goconfig.ConfigFile from file
-func LoadConfig(file string) *goconfig.ConfigFile {
-	cfg, _ := goconfig.LoadConfigFile(file)
-	return cfg
-}
-
-// SaveConfig writes the given cfg file tof ile
-func SaveConfig(cfg *goconfig.ConfigFile, file string) {
-	goconfig.SaveConfigFile(cfg, file)
-}
-
 func main() {
-	mapdir := flag.String("mapdir", "maps",
+	// Get the user options
+	mapDir := flag.String("mapdir", "",
 		"The directory containing custom maps to add")
-	config := flag.String("config", "cfg",
+	configFile := flag.String("config", "",
 		"The path to the PCServer-KFGame.ini file")
 	flag.Parse()
-	maps := GetMapsInDir(*mapdir)
-	cfg := LoadConfig(*config)
-	AddMapsToConfig(maps, cfg)
-	SaveConfig(cfg, *config)
+
+	// Check the user options
+	if *mapDir == "" {
+		log.Fatal("-mapdir missing")
+	}
+	if *configFile == "" {
+		log.Fatal("-config missing")
+	}
+
+	// Load the configuration file
+	cfgdata, err := os.Open(*configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cfg, err := LoadConfig(cfgdata)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	AddMapsToConfig(GetMapsInDir(*mapDir), cfg)
+	SaveConfig(cfg, *configFile)
 }

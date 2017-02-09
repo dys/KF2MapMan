@@ -1,7 +1,9 @@
 package kf2mapman
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -14,8 +16,64 @@ import (
 
 var TestData = "testdata/"
 var PreEditIni = TestData + "pre-edit.ini"
+var IniFile = `
+[MAP1 KFMapSummary]
+MapName=MAP1
+ScreenshotPathName=UI_MapPreview_TEX.UI_MapPreview_Placeholder
+
+[KFGame.KFGameInfo]
+GameMapCycles=(Maps=("MAP1","MAP2"))
+
+[MAP2 KFMapSummary]
+MapName=MAP2
+ScreenshotPathName=UI_MapPreview_TEX.UI_MapPreview_Placeholder
+`
 var EditedIni = TestData + "to-edit.ini"
-var PostEditIni = TestData + "post-edit.ini"
+
+func Reader() io.Reader {
+	return bytes.NewBufferString(IniFile)
+}
+
+func Config() *goconfig.ConfigFile {
+	cfg, err := LoadConfig(Reader())
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+func TestLoadConfig(t *testing.T) {
+	cfg, err := LoadConfig(Reader())
+	assert.Nil(t, err)
+	names := []string{"MAP1", "MAP2"}
+	for _, name := range names {
+		section := fmt.Sprintf("%s %s", name, MapSectionSuffix)
+		resultsSection, _ := cfg.GetSection(section)
+		if assert.NotNil(t, resultsSection) {
+			resultsMapname, _ := cfg.GetValue(
+				section, MapSectionMapOption)
+			assert.Equal(t, name, resultsMapname)
+			resultsScreenshot, _ := cfg.GetValue(
+				section, MapSectionScreenshotOption)
+			assert.Equal(t, MapSectionDefaultScreenshot, resultsScreenshot)
+			resultsCycle, _ := cfg.GetValue(
+				MapCycleSection, MapCycleOption)
+			assert.True(t, strings.Contains(resultsCycle, name))
+		}
+	}
+}
+
+func TestSaveConfig(t *testing.T) {
+	cfg, _ := goconfig.LoadFromData([]byte(""))
+	cfg.SetValue("MAP", "MAP", "MAP")
+	SaveConfig(cfg, EditedIni)
+	file, err := ioutil.ReadFile(EditedIni)
+	if err != nil {
+		panic(err)
+	}
+	contents := string(file)
+	assert.True(t, strings.Contains(contents, "MAP"))
+}
 
 func TestCreateSectionHeader(t *testing.T) {
 	expected := fmt.Sprintf("MAP1 %s", MapSectionSuffix)
@@ -24,18 +82,14 @@ func TestCreateSectionHeader(t *testing.T) {
 }
 
 func TestGetMapSections(t *testing.T) {
-	cfg, _ := goconfig.LoadConfigFile(PreEditIni)
 	expected := []string{"MAP1", "MAP2"}
-	results := GetMapSections(cfg)
+	results := GetMapSections(Config())
 	assert.Equal(t, expected, results)
 }
 
 func TestGetMapCycle(t *testing.T) {
-	cfg, _ := goconfig.LoadFromData([]byte(""))
-	cfg.SetValue(MapCycleSection, MapCycleOption,
-		"(Maps=(\"MAP1\",\"MAP2\"))")
 	expected := []string{"MAP1", "MAP2"}
-	results := GetMapCycle(cfg)
+	results := GetMapCycle(Config())
 	assert.Equal(t, expected, results)
 }
 
@@ -46,17 +100,12 @@ func TestCreateMapCycle(t *testing.T) {
 }
 
 func TestMapInCycle(t *testing.T) {
-	cfg, _ := goconfig.LoadFromData([]byte(""))
-	cfg.SetValue(MapCycleSection, MapCycleOption,
-		"(Maps=(\"MAP1\",\"MAP2\"))")
-	assert.True(t, MapInCycle("MAP1", cfg))
-	assert.False(t, MapInCycle("MAP", cfg))
+	assert.True(t, MapInCycle("MAP1", Config()))
+	assert.False(t, MapInCycle("MAP", Config()))
 }
 
 func TestAddMapToCycle(t *testing.T) {
-	cfg, _ := goconfig.LoadFromData([]byte(""))
-	cfg.SetValue(MapCycleSection, MapCycleOption,
-		"(Maps=(\"MAP1\",\"MAP2\"))")
+	cfg := Config()
 	expected := "(Maps=(\"MAP1\",\"MAP2\",\"MAP3\",\"MAP4\"))"
 	AddMapToCycle("MAP3", cfg)
 	AddMapToCycle("MAP4", cfg)
@@ -66,9 +115,7 @@ func TestAddMapToCycle(t *testing.T) {
 }
 
 func TestDontAddDuplicateMaps(t *testing.T) {
-	cfg, _ := goconfig.LoadFromData([]byte(""))
-	cfg.SetValue(MapCycleSection, MapCycleOption,
-		"(Maps=(\"MAP1\",\"MAP2\"))")
+	cfg := Config()
 	expected := "(Maps=(\"MAP1\",\"MAP2\",\"MAP3\"))"
 	AddMapToCycle("MAP3", cfg)
 	AddMapToCycle("MAP3", cfg)
@@ -78,8 +125,8 @@ func TestDontAddDuplicateMaps(t *testing.T) {
 }
 
 func TestAddMapSection(t *testing.T) {
-	cfg, _ := goconfig.LoadFromData([]byte(""))
-	name := "MAP1"
+	cfg := Config()
+	name := "MAP3"
 	section := fmt.Sprintf("%s %s", name, MapSectionSuffix)
 	AddMapSection(name, cfg)
 	resultsSection, _ := cfg.GetSection(section)
@@ -93,9 +140,7 @@ func TestAddMapSection(t *testing.T) {
 }
 
 func TestAddMapsToConfig(t *testing.T) {
-	cfg, _ := goconfig.LoadFromData([]byte(""))
-	cfg.SetValue(MapCycleSection, MapCycleOption,
-		"(Maps=(\"MAP1\",\"MAP2\"))")
+	cfg := Config()
 	names := []string{"MAP3", "MAP4"}
 	AddMapsToConfig(names, cfg)
 	for _, name := range names {
@@ -132,38 +177,6 @@ func TestGetMapsInDir(t *testing.T) {
 	dir, _ := os.Getwd()
 	results := GetMapsInDir(path.Join(dir, TestData))
 	assert.Equal(t, expected, results)
-}
-
-func TestLoadConfig(t *testing.T) {
-	cfg := LoadConfig(PreEditIni)
-	names := []string{"MAP1", "MAP2"}
-	for _, name := range names {
-		section := fmt.Sprintf("%s %s", name, MapSectionSuffix)
-		resultsSection, _ := cfg.GetSection(section)
-		if assert.NotNil(t, resultsSection) {
-			resultsMapname, _ := cfg.GetValue(
-				section, MapSectionMapOption)
-			assert.Equal(t, name, resultsMapname)
-			resultsScreenshot, _ := cfg.GetValue(
-				section, MapSectionScreenshotOption)
-			assert.Equal(t, MapSectionDefaultScreenshot, resultsScreenshot)
-			resultsCycle, _ := cfg.GetValue(
-				MapCycleSection, MapCycleOption)
-			assert.True(t, strings.Contains(resultsCycle, name))
-		}
-	}
-}
-
-func TestSaveConfig(t *testing.T) {
-	cfg, _ := goconfig.LoadFromData([]byte(""))
-	cfg.SetValue("MAP", "MAP", "MAP")
-	SaveConfig(cfg, EditedIni)
-	file, err := ioutil.ReadFile(EditedIni)
-	if err != nil {
-		panic(err)
-	}
-	contents := string(file)
-	assert.True(t, strings.Contains(contents, "MAP"))
 }
 
 func TestMain(t *testing.T) {
