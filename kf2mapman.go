@@ -48,11 +48,7 @@ const MapSectionDefaultScreenshot = "UI_MapPreview_TEX.UI_MapPreview_Placeholder
 // LoadConfig returns a goconfig.ConfigFile from
 // an io.Reader compatible source
 func LoadConfig(in io.Reader) (*goconfig.ConfigFile, error) {
-	cfg, err := goconfig.LoadFromReader(in)
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
+	return goconfig.LoadFromReader(in)
 }
 
 // SaveConfig writes the given cfg to file
@@ -160,7 +156,7 @@ func StripMapExtension(name string) string {
 // GetMapsInDir returns a list of KF2 maps in dir
 func GetMapsInDir(dir string) []string {
 	files, _ := ioutil.ReadDir(dir)
-	maps := []string{}
+	var maps []string
 	for _, file := range files {
 		if FileIsMap(file.Name()) {
 			maps = append(maps,
