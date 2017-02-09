@@ -3,7 +3,6 @@ package kf2mapman
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -34,16 +33,15 @@ func Reader() io.Reader {
 }
 
 func Config() *goconfig.ConfigFile {
-	cfg, err := LoadConfig(Reader())
+	cfg, err := goconfig.LoadFromReader(Reader())
 	if err != nil {
 		panic(err)
 	}
 	return cfg
 }
 
-func TestLoadConfig(t *testing.T) {
-	cfg, err := LoadConfig(Reader())
-	assert.Nil(t, err)
+func TestConfig(t *testing.T) {
+	cfg := Config()
 	names := []string{"MAP1", "MAP2"}
 	for _, name := range names {
 		section := fmt.Sprintf("%s %s", name, MapSectionSuffix)
@@ -60,18 +58,6 @@ func TestLoadConfig(t *testing.T) {
 			assert.True(t, strings.Contains(resultsCycle, name))
 		}
 	}
-}
-
-func TestSaveConfig(t *testing.T) {
-	cfg, _ := goconfig.LoadFromData([]byte(""))
-	cfg.SetValue("MAP", "MAP", "MAP")
-	SaveConfig(cfg, EditedIni)
-	file, err := ioutil.ReadFile(EditedIni)
-	if err != nil {
-		panic(err)
-	}
-	contents := string(file)
-	assert.True(t, strings.Contains(contents, "MAP"))
 }
 
 func TestCreateSectionHeader(t *testing.T) {

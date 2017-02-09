@@ -3,7 +3,6 @@ package kf2mapman
 import (
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -44,17 +43,6 @@ const MapSectionScreenshotOption = "ScreenshotPathName"
 // MapSectionDefaultScreenshot is the default path
 // used for maps without an existing screenshot
 const MapSectionDefaultScreenshot = "UI_MapPreview_TEX.UI_MapPreview_Placeholder"
-
-// LoadConfig returns a goconfig.ConfigFile from
-// an io.Reader compatible source
-func LoadConfig(in io.Reader) (*goconfig.ConfigFile, error) {
-	return goconfig.LoadFromReader(in)
-}
-
-// SaveConfig writes the given cfg to file
-func SaveConfig(cfg *goconfig.ConfigFile, file string) {
-	goconfig.SaveConfigFile(cfg, file)
-}
 
 // CreateSectionHeader returns a properly formatted
 // map section header for the given name
@@ -97,9 +85,8 @@ func CreateMapCycle(names []string) string {
 
 // MapInCycle returns true if a map is already in the map cycle for config
 func MapInCycle(name string, cfg *goconfig.ConfigFile) bool {
-	cycle := GetMapCycle(cfg)
-	for _, m := range cycle {
-		if m == name {
+	for _, m := range GetMapCycle(cfg) {
+		if strings.ToLower(m) == strings.ToLower(name) {
 			return true
 		}
 	}
@@ -139,11 +126,7 @@ func AddMapsToConfig(names []string, cfg *goconfig.ConfigFile) {
 
 // FileIsMap returns true if the file matches MapExtension
 func FileIsMap(name string) bool {
-	if strings.HasSuffix(name, strings.ToUpper(MapExtension)) ||
-		strings.HasSuffix(name, strings.ToLower(MapExtension)) {
-		return true
-	}
-	return false
+	return strings.HasSuffix(strings.ToLower(name), strings.ToLower(MapExtension))
 }
 
 // StripMapExtension returns name with the map extension removed
@@ -183,18 +166,17 @@ func main() {
 		log.Fatal("-config missing")
 	}
 
-	// Load the configuration file
+	// Load the configuration
 	cfgdata, err := os.Open(*configFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer cfgdata.Close()
-
-	cfg, err := LoadConfig(cfgdata)
+	cfg, err := goconfig.LoadFromReader(cfgdata)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	AddMapsToConfig(GetMapsInDir(*mapDir), cfg)
-	SaveConfig(cfg, *configFile)
+	goconfig.SaveConfigFile(cfg, *configFile)
 }
