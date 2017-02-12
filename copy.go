@@ -1,4 +1,3 @@
-// borrowed from http://www.devdungeon.com/content/working-files-go#copy
 package kf2mapman
 
 import (
@@ -8,6 +7,7 @@ import (
 )
 
 // Copy a file
+// borrowed from http://www.devdungeon.com/content/working-files-go#copy
 func CopyFile(src, dst string) {
 	// Open original file
 	originalFile, err := os.Open(src)

@@ -160,23 +160,32 @@ func main() {
 
 	// Check the user options
 	if *mapDir == "" {
-		log.Fatal("-mapdir missing")
+		log.Fatal("-mapdir missing: ")
 	}
 	if *configFile == "" {
-		log.Fatal("-config missing")
+		log.Fatal("-config missing: ")
+	}
+
+	// Open the INI file
+	ini, err := os.OpenFile(*configFile, os.O_RDWR, 0666)
+	if err != nil {
+		log.Fatal("Failed to open INI file: ", err)
 	}
 
 	// Load the configuration
-	cfgdata, err := os.Open(*configFile)
+	cfg, err := goconfig.LoadFromReader(ini)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to load INI file: ", err)
 	}
-	defer cfgdata.Close()
-	cfg, err := goconfig.LoadFromReader(cfgdata)
-	if err != nil {
-		log.Fatal(err)
-	}
+	ini.Truncate(0)
 
+	// Add maps
 	AddMapsToConfig(GetMapsInDir(*mapDir), cfg)
-	goconfig.SaveConfigFile(cfg, *configFile)
+
+	// Save the config
+	err = goconfig.SaveConfigData(cfg, ini)
+	if err != nil {
+		log.Fatal("Failed to save Config: ", err)
+	}
+	ini.Close()
 }
